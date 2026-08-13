@@ -1,0 +1,129 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Live demo: feed with real content script</title>
+    <style>
+      body { font: 14px system-ui, sans-serif; margin: 0; background: #000; color: #e7e9ea; }
+      header {
+        position: sticky; top: 0; z-index: 10; background: rgba(0,0,0,.85);
+        backdrop-filter: blur(6px); padding: 10px 16px; border-bottom: 1px solid #2f3336;
+        display: flex; gap: 12px; align-items: center;
+      }
+      #log { color: #71767b; font-size: 12px; }
+      .feed { max-width: 600px; margin: 0 auto; }
+      .post { border-bottom: 1px solid #2f3336; padding: 12px 16px; }
+      .who { font-weight: 700; margin-bottom: 6px; }
+      .who span { color: #71767b; font-weight: 400; }
+      .post img { width: 100%; border-radius: 16px; display: block; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <strong>Demo feed</strong>
+      <span id="log">booting…</span>
+    </header>
+    <div class="feed" id="feed"></div>
+
+    <script type="module">
+      // ---- chrome API shim: routes the REAL content script to the REAL engine ------
+      import { createEngine } from '../src/engine.js';
+
+      const log = (m) => (document.getElementById('log').textContent = m);
+      const store = { enabled: false, hashCache: true };
+      const changeListeners = [];
+      const processed = []; // order of analyzed URLs, for sequencing assertions
+
+      const enginePromise = createEngine();
+
+      // Headless fallback: in a hidden pane, real IntersectionObserver never fires and
+      // lazy images never load. Report every observed element as intersecting so the
+      // pipeline (queue -> sequential drain -> badges) still runs end-to-end. When the
+      // pane is visible, the real observer is used and viewport priority is live.
+      if (document.visibilityState === 'hidden') {
+        window.IntersectionObserver = class {
+          constructor(cb) { this.cb = cb; }
+          observe(el) { queueMicrotask(() => this.cb([{ target: el, isIntersecting: true }], this)); }
+          unobserve() {}
+          disconnect() {}
+        };
+      }
+
+      window.chrome = {
+        storage: {
+          local: {
+            get: async (defaults) => ({ ...defaults, ...store }),
+            set: async (obj) => {
+              const changes = {};
+              for (const [k, v] of Object.entries(obj)) {
+                changes[k] = { oldValue: store[k], newValue: v };
+                store[k] = v;
+              }
+              changeListeners.forEach((fn) => fn(changes, 'local'));
+            },
+          },
+          onChanged: { addListener: (fn) => changeListeners.push(fn) },
+        },
+        runtime: {
+          sendMessage: async (msg) => {
+            if (msg?.type !== 'ANALYZE_IMAGE') return {};
+            const engine = await enginePromise;
+            const t0 = performance.now();
+            const resp = await fetch(msg.url);
+            const bitmap = await createImageBitmap(await resp.blob());
+            const { aiProbability: p, graphic } = await engine.classify(bitmap);
+            bitmap.close?.();
+            processed.push({
+              url: msg.url.split('/').pop(),
+              p: +p.toFixed(4),
+              ms: Math.round(performance.now() - t0),
+            });
+            log(`analyzed ${processed.length}: ${processed.at(-1).url} → p=${p.toFixed(3)}`);
+            window.__demo = { processed, backend: engine.backend };
+            return { aiProbability: p, graphic };
+          },
+        },
+      };
+
+      // ---- build a tall feed from the test images (shuffled, repeated) --------------
+      const expected = await (await fetch('expected.json')).json();
+      const posts = [...expected, ...expected] // 32 posts → several viewports tall
+        .map((e, i) => ({ ...e, i }))
+        .sort((a, b) => ((a.i * 2654435761) % 97) - ((b.i * 2654435761) % 97));
+      document.getElementById('feed').innerHTML = posts
+        .map(
+          (e, i) => `
+        <div class="post">
+          <div class="who">demo_user <span>@post_${i} · ${e.label === 'fake' ? 'generator sample' : 'photo sample'}</span></div>
+          <img src="img/${e.file}" />
+        </div>`
+        )
+        .join('');
+
+      // ---- boot: load the REAL content script (after the shim exists), then enable --
+      await new Promise((res) => {
+        const s = document.createElement('script');
+        s.src = '../src/content.js';
+        s.onload = res;
+        document.body.appendChild(s);
+      });
+      await enginePromise;
+      // Optional ?scroll=<px>: start the user partway down the feed, so we can verify
+      // that analysis begins at what's on screen rather than at the top of the document.
+      // Must wait for images to load first, or the page has no height to scroll within.
+      const startScroll = +new URLSearchParams(location.search).get('scroll') || 0;
+      if (startScroll) {
+        await Promise.all(
+          [...document.images].map((i) =>
+            i.complete ? null : new Promise((r) => i.addEventListener('load', r, { once: true }))
+          )
+        );
+        scrollTo(0, startScroll);
+        await new Promise((r) => requestAnimationFrame(r));
+      }
+      log('engine ready — enabling detection…');
+      window.__demoReady = true;
+      await window.chrome.storage.local.set({ enabled: true });
+    </script>
+  </body>
+</html>

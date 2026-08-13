@@ -1,0 +1,24 @@
+# dependencies / build artifacts (rebuilt by `npm install && node build.mjs`)
+node_modules/
+extension/node_modules/
+extension/lib/ort/
+
+# vendored third-party repo (cloned by reproduce step; not ours to redistribute)
+vendor/
+
+# evaluation datasets & caches (rebuilt by eval/build_*.py + fetch_*.py)
+eval/data/
+eval/*.csv
+eval/models/*.onnx
+
+# benchmark-derived test images (regenerate: see extension/test/README note)
+extension/test/img/
+extension/test/expected.json
+
+# large ONNX exports are reproducible via eval/bake_head.py — EXCEPT the shipped model,
+# which is committed so evaluators can load the extension without extra steps.
+!extension/models/detector.onnx
+
+__pycache__/
+*.pyc
+.claude/

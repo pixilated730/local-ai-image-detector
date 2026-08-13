@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Preprocessing parity: engine.js vs harness.py</title>
+    <style>
+      body { font: 13px system-ui, sans-serif; margin: 20px; background: #111; color: #eee; }
+      table { border-collapse: collapse; margin-top: 12px; }
+      td, th { border: 1px solid #333; padding: 4px 10px; text-align: right; }
+      th { background: #222; }
+      .ok { color: #4cd964; }
+      .bad { color: #ff453a; }
+      #summary { font-size: 15px; margin: 12px 0; }
+    </style>
+  </head>
+  <body>
+    <h2>Parity: extension engine (canvas) vs eval harness (PIL)</h2>
+    <div id="summary">loading model…</div>
+    <table id="t">
+      <tr><th>file</th><th>label</th><th>py logit</th><th>js logit</th><th>Δ logit</th><th>py p(AI)</th><th>js p(AI)</th><th>decision@0.65 same?</th></tr>
+    </table>
+    <script type="module">
+      import { createEngine } from '../src/engine.js';
+
+      // Compare RAW model outputs: undo the engine's baked-in calibration offset.
+      const CAL = 2.29; // must match CALIBRATION_OFFSET in src/engine.js
+      const logit = (p) => Math.log(p / (1 - p));
+
+      const summary = document.getElementById('summary');
+      const table = document.getElementById('t');
+      const expected = await (await fetch('expected.json')).json();
+
+      const engine = await createEngine();
+      summary.textContent = `engine ready (backend: ${engine.backend}) — running ${expected.length} images…`;
+
+      let maxDiff = 0, decisionsMatch = 0, times = [];
+      window.__parity = { done: false };
+      for (const e of expected) {
+        const resp = await fetch(`img/${e.file}`);
+        const bitmap = await createImageBitmap(await resp.blob());
+        const t0 = performance.now();
+        const res = await engine.classify(bitmap);
+        times.push(performance.now() - t0);
+        bitmap.close?.();
+
+        // rawLogit excludes the graphic-gate penalty: parity checks the MODEL.
+        const pCal = 1 / (1 + Math.exp(-res.rawLogit));
+        const jsLogit = res.rawLogit - CAL;
+        const jsProb = 1 / (1 + Math.exp(-jsLogit));
+        const d = Math.abs(jsLogit - e.logit);
+        maxDiff = Math.max(maxDiff, d);
+        // Decision parity at the bounty operating point (calibrated p >= 0.65).
+        const pyCalProb = 1 / (1 + Math.exp(-(e.logit + CAL)));
+        const same = (pCal >= 0.65) === (pyCalProb >= 0.65);
+        decisionsMatch += same;
+
+        table.insertAdjacentHTML('beforeend',
+          `<tr><td style="text-align:left">${e.file}</td><td>${e.label}</td>
+           <td>${e.logit.toFixed(3)}</td><td>${jsLogit.toFixed(3)}</td>
+           <td class="${d < 1 ? 'ok' : 'bad'}">${d.toFixed(3)}</td>
+           <td>${e.prob.toExponential(2)}</td><td>${jsProb.toExponential(2)}</td>
+           <td class="${same ? 'ok' : 'bad'}">${same ? 'yes' : 'NO'}</td></tr>`);
+      }
+      const avg = times.reduce((a, b) => a + b, 0) / times.length;
+      summary.innerHTML = `backend: <b>${engine.backend}</b> · max |Δlogit|: <b>${maxDiff.toFixed(3)}</b> · ` +
+        `decisions@0.65 matching: <b class="${decisionsMatch === expected.length ? 'ok' : 'bad'}">${decisionsMatch}/${expected.length}</b> · ` +
+        `avg inference: <b>${avg.toFixed(0)} ms</b>`;
+      window.__parity = { done: true, backend: engine.backend, maxDiff, decisionsMatch, n: expected.length, avgMs: avg };
+    </script>
+  </body>
+</html>

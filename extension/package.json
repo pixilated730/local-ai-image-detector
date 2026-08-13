@@ -1,0 +1,13 @@
+{
+  "name": "local-ai-image-detector",
+  "version": "0.2.0",
+  "description": "Chrome MV3 extension: detects AI-generated images entirely on-device (WebGPU/WASM).",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "onnxruntime-web": "1.27.0"
+  }
+}

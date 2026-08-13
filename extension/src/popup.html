@@ -1,0 +1,107 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      :root {
+        --bg: #141416; --card: #1d1d20; --line: #2c2c30;
+        --text: #ececf0; --dim: #9a9aa2; --red: #ef4444; --green: #34d399;
+      }
+      body {
+        font: 13px/1.45 system-ui, -apple-system, sans-serif;
+        width: 300px; margin: 0; background: var(--bg); color: var(--text);
+      }
+      header {
+        display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px;
+      }
+      header img { width: 22px; height: 22px; }
+      header .name { font-weight: 700; font-size: 14px; }
+      header .sub { color: var(--dim); font-size: 11px; }
+      .card {
+        background: var(--card); border: 1px solid var(--line);
+        border-radius: 10px; margin: 0 12px 10px; padding: 10px 12px;
+      }
+      .row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; }
+      .row + .row { border-top: 1px solid var(--line); }
+      .k { color: var(--dim); }
+      .ok { color: var(--green); } .bad { color: var(--red); }
+      /* stats grid */
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .stat { background: var(--bg); border-radius: 8px; padding: 8px 10px; }
+      .stat b { display: block; font-size: 17px; }
+      .stat span { color: var(--dim); font-size: 11px; }
+      /* switch */
+      .switch { position: relative; width: 38px; height: 21px; flex: none; }
+      .switch input { opacity: 0; width: 0; height: 0; }
+      .slider {
+        position: absolute; inset: 0; cursor: pointer; border-radius: 21px;
+        background: #3d3d42; transition: 0.15s;
+      }
+      .slider:before {
+        content: ""; position: absolute; height: 17px; width: 17px; left: 2px; top: 2px;
+        border-radius: 50%; background: #fff; transition: 0.15s;
+      }
+      input:checked + .slider { background: var(--green); }
+      input:checked + .slider:before { transform: translateX(17px); }
+      button {
+        width: calc(100% - 24px); margin: 2px 12px 12px; padding: 7px; border: 0;
+        border-radius: 8px; background: #2c2c30; color: var(--text); cursor: pointer; font: inherit;
+      }
+      button:hover { background: #3a3a3f; }
+      .foot { color: var(--dim); font-size: 11px; margin: 0 16px 12px; }
+      .badge-demo {
+        display: inline-flex; align-items: center; gap: 5px; font-weight: 600; font-size: 11px;
+        padding: 3px 8px; border-radius: 999px; background: rgba(185,28,28,.92); color: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <img src="../icons/icon48.png" alt="" />
+      <div>
+        <div class="name">Local AI Image Detector</div>
+        <div class="sub">on-device · nothing leaves your browser</div>
+      </div>
+    </header>
+
+    <div class="card">
+      <div class="row">
+        <span><strong>Detection</strong></span>
+        <label class="switch"><input type="checkbox" id="enabled" /><span class="slider"></span></label>
+      </div>
+      <div class="row">
+        <span class="k">Show score on every image</span>
+        <label class="switch"><input type="checkbox" id="showScores" /><span class="slider"></span></label>
+      </div>
+      <div class="row">
+        <span class="k">Remember images (hash cache)</span>
+        <label class="switch"><input type="checkbox" id="hashCache" /><span class="slider"></span></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="grid">
+        <div class="stat"><b id="sAnalyzed">0</b><span>images analyzed</span></div>
+        <div class="stat"><b id="sFlagged">0</b><span>flagged <span class="badge-demo" style="font-size:9px;padding:2px 6px">AI</span></span></div>
+        <div class="stat"><b id="sSpeed">—</b><span>avg per image</span></div>
+        <div class="stat"><b id="sCache">0</b><span>cache hits</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row"><span class="k">Engine</span><span id="engine">—</span></div>
+      <div class="row"><span class="k">Backend</span><span id="backend">—</span></div>
+      <div class="row"><span class="k">Status</span><span id="status">off</span></div>
+      <div class="row"><span class="k">Decision threshold</span><span>65% <span class="k">(calibrated)</span></span></div>
+      <div class="row"><span class="k">Benchmark accuracy</span><span title="Balanced accuracy @0.65 across 5 real-photo sources + 2026-era generators (see repo eval/)">89.2% balanced</span></div>
+    </div>
+
+    <button id="clearCache">Clear image cache</button>
+
+    <p class="foot">
+      Images are analyzed one at a time, starting from what's on screen.
+      Red pill = judged AI at ≥65% confidence; grey chip = score below threshold.
+    </p>
+    <script src="popup.js"></script>
+  </body>
+</html>

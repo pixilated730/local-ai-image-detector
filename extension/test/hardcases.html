@@ -1,0 +1,151 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Discovery hard cases</title>
+    <style>
+      body { font: 13px system-ui, sans-serif; background: #111; color: #eee; margin: 0; padding: 16px; }
+      .case { border: 1px solid #333; border-radius: 8px; padding: 10px; margin: 10px 0; }
+      .case h3 { margin: 0 0 8px; font-size: 13px; color: #8ab4f8; }
+      .bg { width: 320px; height: 240px; background-size: cover; background-position: center; }
+      img { max-width: 320px; display: block; }
+      #summary { position: sticky; top: 0; background: #000; padding: 8px; font-size: 14px; z-index: 5; }
+      .ok { color: #4cd964; } .bad { color: #ff453a; }
+    </style>
+  </head>
+  <body>
+    <div id="summary">running…</div>
+
+    <!-- Every case below holds the SAME AI-generated image, so any case that fails to
+         produce a tag is a discovery failure, not a model disagreement. -->
+    <div class="case" id="c-img"><h3>1. plain &lt;img&gt;</h3><img id="plain" /></div>
+
+    <div class="case" id="c-picture"><h3>2. &lt;picture&gt; + srcset</h3>
+      <picture><source id="src1" type="image/jpeg" /><img id="pic" /></picture>
+    </div>
+
+    <div class="case" id="c-bg"><h3>3. CSS background-image (the X/grok pattern)</h3>
+      <div class="bg" id="bg"></div>
+    </div>
+
+    <div class="case" id="c-lazy"><h3>4. lazy src swapped in later</h3>
+      <img id="lazy" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" width="320" height="240" />
+    </div>
+
+    <div class="case" id="c-shadow"><h3>5. inside an open shadow root</h3>
+      <div id="shadowHost"></div>
+    </div>
+
+    <div class="case" id="c-blob"><h3>6. blob: URL (generated-image pattern)</h3>
+      <img id="blob" />
+    </div>
+
+    <div class="case" id="c-iframe"><h3>7. inside a same-origin iframe</h3>
+      <iframe id="frame" width="340" height="270" style="border:0"></iframe>
+    </div>
+
+    <script type="module">
+      import { createEngine } from '../src/engine.js';
+
+      const AI_FILE = 'img/fake_00004_lumina-17-2-25.jpg'; // scores ~1.0
+      const store = { enabled: false, hashCache: false };
+      const listeners = [];
+      const analyzed = [];
+      const enginePromise = createEngine();
+
+      // A non-rendered (hidden) pane never fires IntersectionObserver — correct browser
+      // behaviour, but it would stall this harness. Report everything as intersecting
+      // so discovery itself is what's under test.
+      if (document.visibilityState === 'hidden') {
+        window.IntersectionObserver = class {
+          constructor(cb) { this.cb = cb; }
+          observe(el) { queueMicrotask(() => this.cb([{ target: el, isIntersecting: true }], this)); }
+          unobserve() {} disconnect() {}
+        };
+      }
+
+      window.chrome = {
+        storage: {
+          local: {
+            get: async (d) => ({ ...d, ...store }),
+            set: async (o) => {
+              const ch = {};
+              for (const [k, v] of Object.entries(o)) { ch[k] = { oldValue: store[k], newValue: v }; store[k] = v; }
+              listeners.forEach((f) => f(ch, 'local'));
+            },
+          },
+          onChanged: { addListener: (f) => listeners.push(f) },
+        },
+        runtime: {
+          sendMessage: async (msg) => {
+            if (msg?.type !== 'ANALYZE_IMAGE') return {};
+            const engine = await enginePromise;
+            const bitmap = await createImageBitmap(await (await fetch(msg.url)).blob());
+            const { aiProbability: p, graphic } = await engine.classify(bitmap);
+            bitmap.close?.();
+            analyzed.push(msg.url.slice(0, 40));
+            return { aiProbability: p, graphic };
+          },
+        },
+      };
+
+      // --- build the cases ---
+      document.getElementById('plain').src = AI_FILE;
+      document.getElementById('src1').srcset = AI_FILE;
+      document.getElementById('pic').src = AI_FILE;
+      document.getElementById('bg').style.backgroundImage = `url("${AI_FILE}")`;
+
+      const shadow = document.getElementById('shadowHost').attachShadow({ mode: 'open' });
+      const si = document.createElement('img');
+      si.src = AI_FILE;
+      si.style.maxWidth = '320px';
+      shadow.append(si);
+
+      const blobUrl = URL.createObjectURL(await (await fetch(AI_FILE)).blob());
+      document.getElementById('blob').src = blobUrl;
+
+      const frame = document.getElementById('frame');
+      frame.srcdoc = `<body style="margin:0"><img src="${new URL(AI_FILE, location.href).href}" width="320"></body>`;
+
+      // lazy image: swap the real src in after detection has already started
+      setTimeout(() => (document.getElementById('lazy').src = AI_FILE), 3000);
+
+      // --- run the REAL content script, then enable ---
+      await new Promise((res) => {
+        const s = document.createElement('script');
+        s.src = '../src/content.js';
+        s.onload = res;
+        document.body.appendChild(s);
+      });
+      await enginePromise;
+      await window.chrome.storage.local.set({ enabled: true });
+
+      // --- report which cases produced a tag ---
+      const CASES = [
+        ['1 plain img', () => document.getElementById('plain')],
+        ['2 picture/srcset', () => document.getElementById('pic')],
+        ['3 css background', () => document.getElementById('bg')],
+        ['4 lazy swap', () => document.getElementById('lazy')],
+        ['5 shadow dom', () => si],
+        ['6 blob url', () => document.getElementById('blob')],
+      ];
+      const tagged = (el) => {
+        const r = el.getBoundingClientRect();
+        return [...document.querySelectorAll('.laid-badge-host')].some((h) => {
+          const hr = h.getBoundingClientRect();
+          return Math.abs(hr.left - r.left) < 2 && Math.abs(hr.top - r.top) < 2;
+        });
+      };
+      const check = () => {
+        const results = CASES.map(([name, get]) => [name, tagged(get())]);
+        const pass = results.filter(([, ok]) => ok).length;
+        document.getElementById('summary').innerHTML =
+          `tagged <b class="${pass === CASES.length ? 'ok' : 'bad'}">${pass}/${CASES.length}</b> · ` +
+          results.map(([n, ok]) => `<span class="${ok ? 'ok' : 'bad'}">${n}${ok ? '✓' : '✗'}</span>`).join(' · ');
+        window.__hard = { pass, total: CASES.length, results, analyzed: analyzed.length };
+      };
+      setInterval(check, 1000);
+      check();
+    </script>
+  </body>
+</html>

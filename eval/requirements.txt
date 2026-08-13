@@ -1,0 +1,10 @@
+# Python 3.12 tested. Torch is only needed for model export (export_*.py, bake_head.py).
+torch
+timm
+onnx
+onnxruntime
+numpy
+pillow
+datasets
+huggingface_hub
+pyarrow

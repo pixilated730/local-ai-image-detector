@@ -1,0 +1,6 @@
+/* Host containers for badges are positioned via inline styles; shadow DOM handles the
+   badge visuals so page CSS can't interfere. This file exists for any future page-level
+   styles (e.g. image outline highlighting). */
+.laid-badge-host {
+  pointer-events: none;
+}
