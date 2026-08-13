@@ -15,7 +15,7 @@ doesn't meaningfully apply:
 
 | | |
 |---|---|
-| ![X feed: AI image flagged, dashboard labeled graphic](docs/screenshots/x-feed-1.png) | ![X feed: composite flagged 96%, video frame scored](docs/screenshots/x-feed-2.png) |
+| ![X feed: AI image flagged at 100%, dashboard screenshot labeled "graphic"](docs/screenshots/x-feed-graphic-gate.png) | ![X feed: AI composite flagged at 96%, video frame scored 21%](docs/screenshots/x-feed-messi-ronaldo.png) |
 
 ![grok.com imagine: generated images tagged at 97–100%](docs/screenshots/grok-live.png)
 
