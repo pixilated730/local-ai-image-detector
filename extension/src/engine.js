@@ -1,8 +1,8 @@
-// Inference engine: Community Forensics ViT-S/16 (224px) via ONNX Runtime Web.
-// Everything outside this file only knows `classify(imageBitmap) -> p(AI)`.
+// Inference engine: Community Forensics ViT-S/16 (384px, re-fit head) via ONNX Runtime
+// Web. Everything outside this file only knows `classify(imageBitmap)`.
 //
 // Preprocessing MUST stay in lockstep with eval/harness.py:
-//   resize shorter side to 256 -> center crop 224 -> [0,1] -> ImageNet mean/std, NCHW.
+//   resize shorter side to 440 -> center crop 384 -> [0,1] -> ImageNet mean/std, NCHW.
 // Output: single logit; sigmoid(logit + CALIBRATION_OFFSET) = p(AI-generated).
 
 import * as ort from '../lib/ort/ort.all.bundle.min.mjs';
@@ -22,9 +22,10 @@ const STD = [0.229, 0.224, 0.225];
 
 // Logit offset that shifts the model's optimal balanced-accuracy operating point to the
 // bounty's fixed 0.65 threshold. Model = CommFor ViT-S/384 with a re-fit head
-// (eval/refit_head.py, lam=0.1, 2026-08-13): pooled BA@0.65 = 0.8915 across
-// OpenFake/COCO/VOC/Commons/Unsplash eval sets; OOD fake recall preserved (99.6%).
-const CALIBRATION_OFFSET = 2.29;
+// (eval/refit_head.py round 3, lam=0.1, 2026-08-14): trained real sources now include
+// pre-2022 memes; pooled BA@0.65 = 0.8848 across 6 real distributions; meme FPR
+// 45.8%→4.4%; OOD fake recall preserved (99.6%).
+const CALIBRATION_OFFSET = 1.79;
 
 export async function createEngine() {
   ort.env.wasm.wasmPaths = new URL('lib/ort/', BASE).href;
@@ -106,29 +107,41 @@ async function preprocess(bitmap) {
   }
   return {
     tensor: new ort.Tensor('float32', chw, [1, 3, CROP, CROP]),
-    graphic: detectGraphic(rgba),
+    graphic: detectGraphic(bitmap),
   };
 }
 
 // Graphic/screenshot detector (charts, tables, UI, text pages): huge flat-color runs
-// and a tiny palette, unlike photos or generated art. Thresholds tuned in
-// eval/graphic_gate.py — fires on 100% of rendered graphics, 1.5% of photos.
-function detectGraphic(rgba) {
-  const size = CROP;
+// and a tiny palette, unlike photos or generated art. Computed on a NATIVE-resolution
+// center crop — never on resampled pixels, so browser and Python (eval/graphic_gate.py)
+// produce identical stats. Fires on 97% of graphics, 2.5% of photos.
+function detectGraphic(bitmap) {
+  const cw = Math.min(384, bitmap.width);
+  const ch = Math.min(384, bitmap.height);
+  const canvas = new OffscreenCanvas(cw, ch);
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.imageSmoothingEnabled = false; // 1:1 pixels — no resampling
+  ctx.drawImage(
+    bitmap,
+    (bitmap.width - cw) / 2, (bitmap.height - ch) / 2, cw, ch, // native center crop
+    0, 0, cw, ch
+  );
+  const { data: rgba } = ctx.getImageData(0, 0, cw, ch);
+
   let flat = 0;
   const palette = new Set();
-  for (let y = 0; y < size; y++) {
-    const row = y * size;
-    for (let x = 0; x < size; x++) {
+  for (let y = 0; y < ch; y++) {
+    const row = y * cw;
+    for (let x = 0; x < cw; x++) {
       const i = (row + x) * 4;
       palette.add(((rgba[i] >> 3) << 10) | ((rgba[i + 1] >> 3) << 5) | (rgba[i + 2] >> 3));
-      if (x + 1 < size) {
+      if (x + 1 < cw) {
         const j = i + 4;
         if (rgba[i] === rgba[j] && rgba[i + 1] === rgba[j + 1] && rgba[i + 2] === rgba[j + 2]) flat++;
       }
     }
   }
-  const flatFrac = flat / (size * (size - 1));
+  const flatFrac = flat / (ch * (cw - 1));
   const colors = palette.size / 1024;
-  return flatFrac > 0.62 || (flatFrac > 0.45 && colors < 0.08);
+  return flatFrac > 0.62 || (flatFrac > 0.56 && colors < 0.5);
 }

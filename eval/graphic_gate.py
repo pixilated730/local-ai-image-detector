@@ -30,15 +30,14 @@ from harness import preprocess  # noqa: E402  (used for the same resize path)
 
 # ---------------------------------------------------------------- gate features
 def gate_features(img: Image.Image) -> dict:
-    """Same crop geometry as the model input; cheap integer stats."""
+    """NATIVE-resolution center crop — no resampling, so the stats are identical no
+    matter what scaler (PIL, canvas, CDN) touched the image last. This is what makes
+    the browser and Python gates agree."""
     im = img.convert("RGB")
     w, h = im.size
-    s = 384 / min(w, h)
-    im = im.resize((max(1, round(w * s)), max(1, round(h * s))), Image.BILINEAR)
-    w, h = im.size
-    left, top = (w - 384) // 2, (h - 384) // 2
-    im = im.crop((left, top, left + 384, top + 384))
-    a = np.asarray(im, dtype=np.uint8)
+    cw, ch = min(384, w), min(384, h)
+    left, top = (w - cw) // 2, (h - ch) // 2
+    a = np.asarray(im.crop((left, top, left + cw, top + ch)), dtype=np.uint8)
 
     flat = float((a[:, 1:] == a[:, :-1]).all(axis=2).mean())
     q = (a >> 3).astype(np.uint32)
@@ -48,9 +47,9 @@ def gate_features(img: Image.Image) -> dict:
 
 
 def is_graphic(feat: dict) -> bool:
-    # Graphics: flat p5=0.71; photos: flat p95=0.53, fakes p95=0.48 (measured below).
-    # flat>0.62 splits the distributions; the color term catches dark low-palette UI.
-    return feat["flat"] > 0.62 or (feat["flat"] > 0.45 and feat["colors"] < 0.08)
+    # Grid-searched on native-crop features under photo-fire<=2.5% / fake-fire<=3%:
+    # graphics (simple + dense-multipanel, X-recompressed) 97.1%, photos 2.5%, fakes 1.7%.
+    return feat["flat"] > 0.62 or (feat["flat"] > 0.56 and feat["colors"] < 0.50)
 
 
 # ---------------------------------------------------------------- synthetic graphics

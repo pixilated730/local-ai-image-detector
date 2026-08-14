@@ -40,6 +40,9 @@ TRAIN_SETS = {
     "tp_real_flickr": ("data/flickr_dated/train_pre2022/real", 0, "modern"),
     "tp_real_commons": ("data/commons/train/real", 0, "modern"),
     "tp_real_unsplash": ("data/unsplash/train/real", 0, "modern"),
+    # meme-laundered real content (pre-2022 Memotion): old photos + text overlays,
+    # heavy recompression — the distribution X feeds are full of
+    "tp_real_memes": ("data/memes_pre2022/train/real", 0, "laundered"),
 }
 EVAL_SETS = {
     "eval_fake": (["data/proxy/fake", "data/holdout/fake"], 1),
@@ -48,6 +51,7 @@ EVAL_SETS = {
     "eval_real_voc": (["data/reals_broad/voc2012/real"], 0),
     "eval_real_commons": (["data/commons/test/real"], 0),
     "eval_real_unsplash": (["data/unsplash/test/real"], 0),
+    "eval_real_memes": (["data/memes_pre2022/test/real"], 0),
     "eval_real_flickr_pre2022": (["data/flickr_dated/test_pre2022/real"], 0),
     # NOT eval-real: 2022-scrape flickr contains AI uploads; keep for analysis only
     "flickr2022_contaminated": (["data/reals_broad/flickr_consumer/real"], -1),

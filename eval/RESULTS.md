@@ -1,5 +1,30 @@
 # Evaluation Results
 
+## Round 3 (2026-08-14): social-media-realistic expansion — SHIPPED
+
+Live X testing exposed two gaps: (a) the graphic gate missed dense multi-panel charts
+after X recompression (canvas resampling eroded exact-pixel flatness), and (b)
+**meme-laundered real content flagged at 43.8%** — a distribution absent from the
+benchmark. Fixes:
+
+1. **Native-crop gate**: features now computed on an unscaled native center crop, so
+   browser and Python produce identical stats regardless of scaler. New rule
+   (flat>0.62 OR flat>0.56 & colors<0.50): 97% of graphics (incl. dense charts through
+   an X-pipeline simulation), 2.5% of photos, 1.7% of fakes. Verified in the real
+   extension: the dense chart that red-pilled at 79% is now a 15% "graphic" chip.
+2. **Memes added to benchmark + refit** (pre-2022 Memotion, provably pre-generator;
+   241 train / 159 test split by content hash). Head refit round 3:
+   meme FPR **45.8% → 4.4%**, Unsplash 13.7%, OpenFake reals 5.5%, VOC 0.0%,
+   fake recall 84.2% (−2.3pp vs round 2), OOD CommFor recall preserved at 99.6%.
+   New calibration offset **+1.79**.
+3. Pooled BA @0.65 on the expanded 6-real-distribution benchmark: **0.8848**
+   (AUC 0.951); source-balanced BA 0.8890.
+
+Known remaining gaps (documented, not hidden): GIF/video frames only analyzed via
+poster images; X GIFs served as `<video>` without posters are skipped. Old low-res
+footage remains the noisiest real class.
+
+
 ## ✅ SHIPPED MODEL (2026-08-13): re-fit head, pooled BA @0.65 = 0.8915
 
 The Flickr false-positive investigation ended in a head re-fit on frozen CommFor

@@ -23,41 +23,42 @@ doesn't meaningfully apply:
 
 ![Benchmark: FPR by real source and recall by generator](docs/benchmark.png)
 
-**89.2% pooled balanced accuracy @ threshold 0.65** on a 2,350-image evaluation that was
+**88.5% pooled balanced accuracy @ threshold 0.65** on a 2,500-image evaluation that was
 deliberately built to be hard (details in [eval/RESULTS.md](eval/RESULTS.md)):
 
 - Fakes: OpenFake test split — 19 generators including **sora-2, gpt-image-2,
   flux-2-klein, midjourney-7, z-image-turbo** (2025–26 era), never trained on.
-- Reals: **five distributions** — OpenFake reals, COCO, Pascal VOC, Wikimedia Commons
-  quality images, Unsplash — because real-photo false positives are where detectors
-  quietly fail. FPR is uniform (0.5–13%) across all five.
+- Reals: **six distributions** — OpenFake reals, COCO, Pascal VOC, Wikimedia Commons
+  quality images, Unsplash, and pre-2022 memes (meme-laundered photos: text overlays,
+  heavy recompression — what social feeds are actually full of). FPR is uniform
+  (0–14%) across all six.
 - Everything web-realistically re-encoded (≤1024px, JPEG q85) identically for both
   classes so format cues can't leak.
 - Out-of-distribution check: 99.6% recall on Community Forensics' own held-out
   generators — the fine-tuned head did not narrow to one fake distribution.
-- AUC 0.955 · fake recall 86.5% at the 0.65 operating point.
+- AUC 0.951 · fake recall 84.2% at the 0.65 operating point.
 
 Per-generator recall at the fixed 0.65 threshold (shipped model, held-out images):
 
 | Generator | Recall | Generator | Recall |
 |---|---|---|---|
-| illustrious | 100% | z-image-turbo | 90% |
-| sora-2 | 100% | recraft-v3 | 89% |
-| wan-video-2.5 | 100% | seedream-v5 | 88% |
-| gpt-image-2 | 100% | veo-3 | 84% |
-| aurora | 100% | gpt-image-1.5 | 80% |
-| lumina-17 | 92% | midjourney-7 | 78% |
-| ernie-image(-turbo) | 83–100% | flux-2-klein | 74% |
+| illustrious | 100% | z-image-turbo / veo-3 | 84% |
+| wan-video-2.5 | 100% | midjourney-7 | 80% |
+| gpt-image-2 | 100% | gpt-image-1.5 | 78% |
+| sora-2 | 91% | nano-banana-pro | 71% |
+| lumina-17 | 92% | ideogram-2 | 67% |
+| recraft-v3 / seedream-v5 | 88–89% | flux-2-klein | 66% |
 
 False-positive rate on real photos, stock head vs shipped re-fit head:
 
 | Real source | Stock head | Shipped |
 |---|---|---|
-| Pascal VOC 2012 | 1.5% | **0.5%** |
-| COCO val | 7.5% | **7.0%** |
-| OpenFake reals | 13.0% | **7.0%** |
-| Wikimedia Commons quality | 28.3% | **10.0%** |
-| Unsplash | 42.6% | **12.9%** |
+| Pascal VOC 2012 | 1.5% | **0.0%** |
+| Pre-2022 memes | 8.8% | **4.4%** |
+| COCO val | 7.5% | **6.0%** |
+| OpenFake reals | 13.0% | **5.5%** |
+| Wikimedia Commons quality | 28.3% | **9.1%** |
+| Unsplash | 42.6% | **13.7%** |
 
 Full methodology, ablations (graphic gate: −0.06pp on the benchmark), and every
 intermediate measurement: [eval/RESULTS.md](eval/RESULTS.md). This is our own proxy
@@ -73,9 +74,10 @@ trained on 4,803 generators) with **a re-fit classification head** trained on fr
 features to fix a measured blind spot: the stock head false-positives heavily on modern
 professional photography (42.6% FPR on Unsplash). The re-fit (weighted logistic
 regression, L2-regularized toward the original head, trained only on provably-real
-photos: pre-2022 camera-EXIF Unsplash + Wikimedia Commons quality images) brings that
-to 12.9% while *raising* fake recall. A calibration offset (+2.29 logits) centers the
-optimal balanced-accuracy operating point exactly at the required 0.65 threshold.
+content: pre-2022 camera-EXIF Unsplash, Wikimedia Commons quality images, and pre-2022
+memes) brings Unsplash to 13.7% and memes from 45.8% to 4.4%, while still raising fake
+recall over stock. A calibration offset (+1.79 logits) centers the optimal
+balanced-accuracy operating point exactly at the required 0.65 threshold.
 
 Exported to ONNX (fp32, 87MB, committed in `extension/models/detector.onnx`) and
 executed by ONNX Runtime Web — WebGPU when available, single-thread WASM otherwise.
@@ -112,7 +114,8 @@ The model ships inside the repo — after `git clone` + `npm install` the extens
   pixels and DOM structure, never page text (verified live on Japanese and Arabic
   pages).
 - **Knows what it doesn't know**: charts, tables, and UI screenshots are detected by a
-  pixel-statistics gate (100% of rendered graphics, 1.5% of photos) and labeled
+  pixel-statistics gate (97% of rendered graphics incl. dense multi-panel charts after
+  social-media recompression, 2.5% of photos) and labeled
   "graphic" with reduced confidence instead of pretending a photo detector's score is
   meaningful there.
 - **Never re-analyzes**: per-element, per-URL, and SHA-256 content-hash caches (the
@@ -142,7 +145,7 @@ pip install torch timm onnxruntime onnx datasets pillow numpy huggingface_hub
 git clone https://github.com/JeongsooP/Community-Forensics vendor/Community-Forensics
 cd eval
 python export_features.py                 # backbone (HF: OwensLab/commfor-model-384, MIT) + original head
-python bake_head.py --head models/head_384_refit.npz --offset 2.29   # -> commfor_vits_384_refit.onnx
+python bake_head.py --head models/head_384_refit.npz --offset 1.79   # -> commfor_vits_384_refit.onnx
 ```
 
 `models/head_384_refit.npz` (the 385-parameter re-fit head) is committed. To re-train
