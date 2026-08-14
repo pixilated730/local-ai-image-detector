@@ -4,7 +4,17 @@ The extension is a plain unpacked Manifest V3 extension — Brave loads it exact
 Chrome does. Everything it needs (model + ONNX Runtime) is already inside the folder,
 so there's no build step and no network access required at runtime.
 
-## Load it in Brave
+## Easiest path: prebuilt release (no build tools)
+
+1. Download the zip from the repo's **Releases** page and unzip it
+2. Open **`brave://extensions`** (or `chrome://extensions`)
+3. Turn on **Developer mode** (toggle, top-right)
+4. Click **Load unpacked** and select the unzipped `local-ai-image-detector` folder
+5. Click the toolbar icon → switch **Detection** on
+
+That's the whole install. The section below covers loading from a source checkout.
+
+## Load it in Brave (from source checkout)
 
 1. Open **`brave://extensions`** (paste into the address bar — it can't be linked to)
 2. Turn on **Developer mode** (toggle, top-right)

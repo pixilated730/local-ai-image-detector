@@ -86,6 +86,13 @@ executed by ONNX Runtime Web — WebGPU when available, single-thread WASM other
 
 ## Install (Chrome or Brave)
 
+**Easiest — prebuilt release (no build tools needed):** download the zip from
+[Releases](https://github.com/pixilated730/local-ai-image-detector/releases), unzip it,
+then `chrome://extensions` → Developer mode → **Load unpacked** → select the unzipped
+`local-ai-image-detector` folder. Done — no Node, no Python, nothing else.
+
+**From source:**
+
 ```bash
 git clone <this repo>
 cd ai-image-detector/extension
