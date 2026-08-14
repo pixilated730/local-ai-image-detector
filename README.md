@@ -23,7 +23,7 @@ doesn't meaningfully apply:
 
 ![Benchmark: FPR by real source and recall by generator](docs/benchmark.png)
 
-**88.5% pooled balanced accuracy @ threshold 0.65** on a 2,500-image evaluation that was
+**89.5% pooled balanced accuracy @ threshold 0.65** on a 2,500-image evaluation that was
 deliberately built to be hard (details in [eval/RESULTS.md](eval/RESULTS.md)):
 
 - Fakes: OpenFake test split — 19 generators including **sora-2, gpt-image-2,
@@ -36,29 +36,31 @@ deliberately built to be hard (details in [eval/RESULTS.md](eval/RESULTS.md)):
   classes so format cues can't leak.
 - Out-of-distribution check: 99.6% recall on Community Forensics' own held-out
   generators — the fine-tuned head did not narrow to one fake distribution.
-- AUC 0.951 · fake recall 84.2% at the 0.65 operating point.
+- AUC 0.959 · fake recall 87.2% at the 0.65 operating point.
 
 Per-generator recall at the fixed 0.65 threshold (shipped model, held-out images):
 
 | Generator | Recall | Generator | Recall |
 |---|---|---|---|
-| illustrious | 100% | z-image-turbo / veo-3 | 84% |
-| wan-video-2.5 | 100% | midjourney-7 | 80% |
-| gpt-image-2 | 100% | gpt-image-1.5 | 78% |
-| sora-2 | 91% | nano-banana-pro | 71% |
-| lumina-17 | 92% | ideogram-2 | 67% |
-| recraft-v3 / seedream-v5 | 88–89% | flux-2-klein | 66% |
+| illustrious | 100% | z-image-turbo | 90% |
+| wan-video-2.5 | 100% | veo-3 | 84% |
+| gpt-image-2 | 100% | gpt-image-1.5 | 82% |
+| sora-2 | 91% | flux-2-klein | 80% |
+| lumina-17 | 92% | midjourney-7 | 80% |
+| recraft-v3 / seedream-v5 | 88–89% | ideogram-2 / nano-banana* | 67–71% |
 
 False-positive rate on real photos, stock head vs shipped re-fit head:
 
 | Real source | Stock head | Shipped |
 |---|---|---|
 | Pascal VOC 2012 | 1.5% | **0.0%** |
-| Pre-2022 memes | 8.8% | **4.4%** |
-| COCO val | 7.5% | **6.0%** |
-| OpenFake reals | 13.0% | **5.5%** |
-| Wikimedia Commons quality | 28.3% | **9.1%** |
+| Pre-2022 memes | 8.8% | **5.0%** |
+| COCO val | 7.5% | **8.5%** |
+| OpenFake reals | 13.0% | **6.5%** |
+| Wikimedia Commons quality | 28.3% | **11.1%** |
 | Unsplash | 42.6% | **13.7%** |
+
+\* 6–7 eval images each — small-sample numbers.
 
 Full methodology, ablations (graphic gate: −0.06pp on the benchmark), and every
 intermediate measurement: [eval/RESULTS.md](eval/RESULTS.md). This is our own proxy
@@ -76,7 +78,7 @@ professional photography (42.6% FPR on Unsplash). The re-fit (weighted logistic
 regression, L2-regularized toward the original head, trained only on provably-real
 content: pre-2022 camera-EXIF Unsplash, Wikimedia Commons quality images, and pre-2022
 memes) brings Unsplash to 13.7% and memes from 45.8% to 4.4%, while still raising fake
-recall over stock. A calibration offset (+1.79 logits) centers the optimal
+recall over stock. A calibration offset (+1.67 logits) centers the optimal
 balanced-accuracy operating point exactly at the required 0.65 threshold.
 
 Exported to ONNX (fp32, 87MB, committed in `extension/models/detector.onnx`) and
@@ -145,7 +147,7 @@ pip install torch timm onnxruntime onnx datasets pillow numpy huggingface_hub
 git clone https://github.com/JeongsooP/Community-Forensics vendor/Community-Forensics
 cd eval
 python export_features.py                 # backbone (HF: OwensLab/commfor-model-384, MIT) + original head
-python bake_head.py --head models/head_384_refit.npz --offset 1.79   # -> commfor_vits_384_refit.onnx
+python bake_head.py --head models/head_384_refit_hi.npz --offset 1.67   # -> commfor_vits_384_refit.onnx
 ```
 
 `models/head_384_refit.npz` (the 385-parameter re-fit head) is committed. To re-train

@@ -34,6 +34,9 @@ THRESH = 0.65
 TRAIN_SETS = {
     # tag: (dir, label, source-group for real balancing)
     "tp_fake": ("data/trainpool/fake", 1, "fake"),
+    # targeted boost for the hardest generators (flux-2, ideogram, nano-banana,
+    # gpt-image-1.5, midjourney-7) — round-3 recall 66-80%
+    "tp_fake_hard": ("data/trainpool/fake_hard", 1, "fake"),
     "tp_real_of": ("data/trainpool/real_openfake", 0, "openfake"),
     "tp_real_coco": ("data/trainpool/real_coco", 0, "coco"),
     "tp_real_voc": ("data/trainpool/real_voc", 0, "voc"),

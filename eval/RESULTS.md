@@ -1,5 +1,18 @@
 # Evaluation Results
 
+## Round 4 (2026-08-14): hard-generator boost — SHIPPED
+
++600 training fakes from the weakest generators (whole Flux family, ideogram-3,
+nano-banana 1/2, midjourney-6, gpt-image-1) out of OpenFake validation. Shipped the
+low-drift head (lam=0.1, offset **+1.67**) over the val-selected lam=0.03 variant,
+which bought +1.6pp recall at the cost of 3pp OOD recall (96.7% vs 99.1%) — bad trade
+for a private benchmark.
+
+- **flux-2-klein 66% → 80%**, z-image-turbo 84→90, gpt-image-1.5 78→82, mj-7 stable 80
+- Pooled BA @0.65: **0.8947** (AUC 0.959) · fake recall **87.2%** · source-balanced 0.8988
+- FPR: VOC 0.0 / memes 5.0 / OpenFake 6.5 / COCO 8.5 / Commons 11.1 / Unsplash 13.7
+- OOD CommFor: fakes 99.1%, reals 2.7% · e2e verified (plain + graphics pages)
+
 ## Round 3 (2026-08-14): social-media-realistic expansion — SHIPPED
 
 Live X testing exposed two gaps: (a) the graphic gate missed dense multi-panel charts

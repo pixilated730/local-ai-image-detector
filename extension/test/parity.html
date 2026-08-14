@@ -23,7 +23,7 @@
       import { createEngine } from '../src/engine.js';
 
       // Compare RAW model outputs: undo the engine's baked-in calibration offset.
-      const CAL = 1.79; // must match CALIBRATION_OFFSET in src/engine.js
+      const CAL = 1.67; // must match CALIBRATION_OFFSET in src/engine.js
       const logit = (p) => Math.log(p / (1 - p));
 
       const summary = document.getElementById('summary');

@@ -22,10 +22,10 @@ const STD = [0.229, 0.224, 0.225];
 
 // Logit offset that shifts the model's optimal balanced-accuracy operating point to the
 // bounty's fixed 0.65 threshold. Model = CommFor ViT-S/384 with a re-fit head
-// (eval/refit_head.py round 3, lam=0.1, 2026-08-14): trained real sources now include
-// pre-2022 memes; pooled BA@0.65 = 0.8848 across 6 real distributions; meme FPR
-// 45.8%→4.4%; OOD fake recall preserved (99.6%).
-const CALIBRATION_OFFSET = 1.79;
+// (eval/refit_head.py round 4, lam=0.1, 2026-08-14): trained real sources now include
+// pre-2022 memes; pooled BA@0.65 = 0.8947 across 6 real distributions; meme FPR
+// 45.8%→5.0%; flux-2 recall 66%→80%; OOD 99.1%.
+const CALIBRATION_OFFSET = 1.67;
 
 export async function createEngine() {
   ort.env.wasm.wasmPaths = new URL('lib/ort/', BASE).href;
